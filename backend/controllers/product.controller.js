@@ -4,79 +4,95 @@ import Product from "../models/product.model.js";
 export const createProduct = async (req, res) => {
   const { name, description, price, imageUrl } = req.body;
 
-  if (!name || !description || !price || !imageUrl)
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing required field" });
+  if (!name || !description || !price || !imageUrl) {
+    return res.status(400).json({ error: "Missing required field" });
+  }
 
   try {
     const product = new Product(req.body);
     const newProduct = await product.save();
-    res.status(201).json({ success: true, message: "Product created" });
+    res.status(201).json({ id: newProduct._id });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.log(error);
+    res.status(500).json({ error: error.message });
   }
 };
 
 export const getAllProduct = async (req, res) => {
   try {
-    const products = await Product.find();
-    res.status(200).json({ success: true, products });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const products = await Product.find().limit(limit).skip(skip);
+    const totalProducts = await Product.countDocuments();
+
+    res.status(200).json({
+      total: totalProducts,
+      page,
+      totalPage: Math.ceil(totalProducts / limit),
+      products,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const getProduct = async (req, res) => {
+export const getOneProduct = async (req, res) => {
   const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(id))
-    return res
-      .status(400)
-      .json({ success: false, id, message: "The id is not valid" });
-
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "The id is not valid" });
+  }
   try {
     const product = await Product.findById(id);
-    console.log(product);
-    if (!product)
-      return res
-        .status(400)
-        .json({ success: false, message: "Product not exist" });
-    res.status(200).json({ success: true, product });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    res.status(200).json({ product });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getLatestProduct = async (req, res) => {
+  try {
+    const limit = req.query.limit || 5;
+    const products = await Product.find().sort({ createdAt: -1 }).limit(limit);
+    res.status(200).json({ products });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
 export const updateProduct = async (req, res) => {
   const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(id))
-    return res
-      .status(400)
-      .json({ success: false, id, message: "The id is not valid" });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "The id is not valid" });
+  }
+
   try {
-    const isUpdated = await Product.findByIdAndUpdate(id, req.body);
-    if (!isUpdated)
-      return res.status(400).json({ success: false, message: "Bad request" });
-    res.status(200).json({ success: true, message: "Product Updated" });
+    const updatedProduct = await Product.findByIdAndUpdate(id, req.body);
+    if (!updatedProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    res.status(200).json({ message: "Product updated" });
   } catch (error) {
-    res.status(500).json({ success: false, error });
+    res.status(500).json({ error: error.message });
   }
 };
 
 export const deleteProduct = async (req, res) => {
   const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(id))
-    return res
-      .status(400)
-      .json({ success: false, id, message: "The id is not valid" });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "The id is not valid" });
+  }
   try {
-    const isDeleted = await Product.findByIdAndDelete(id);
-    if (!isDeleted)
-      return res
-        .status(400)
-        .json({ success: false, message: "An error is occurred" });
-    res.status(200).json({ success: true, message: "Product deleted" });
+    const deletedProduct = await Product.findByIdAndDelete(id);
+    if (!deletedProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    res.status(200).json({ message: "Product deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ error: error.message });
   }
 };
